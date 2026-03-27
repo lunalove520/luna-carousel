@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>打造專屬輪播貼文編輯器 | Luna 教學</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── 金萱字體（若有 TTF 檔放同資料夾） ── */
+    @font-face { font-family:'JFHalfSugar';    src:url('jf-jinxuan-3.0 半糖.ttf') format('truetype'); font-display:swap; }
+    @font-face { font-family:'JFQuarterSugar'; src:url('jf-jinxuan-3.0 四分糖.ttf') format('truetype'); font-display:swap; }
+
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#FAF0F2; --bg2:#F5E8EC; --pink:#C7607A; --pink-mid:#D4879A;
+      --pink-light:#EDD0D5; --rose:#B8506A; --cream:#FBF6F0;
+      --text:#2A1A1A; --text-mid:#5A3A3A; --text-light:#9A7878;
+      --card:rgba(255,255,255,0.92); --border:rgba(199,96,122,0.18);
+      --border-mid:rgba(199,96,122,0.3);
+      --jf-half:'JFHalfSugar','Noto Serif TC',serif;
+      --jf-quarter:'JFQuarterSugar','Noto Sans TC',sans-serif;
+      --sans:'Noto Sans TC',sans-serif;
+    }
+    html { scroll-behavior:smooth; }
+    body {
+      font-family:var(--jf-quarter);
+      background:var(--bg);
+      color:var(--text);
+      overflow-x:hidden;
+      -webkit-tap-highlight-color:transparent;
+      padding-bottom:70px;
+    }
+
+    /* ── 動畫 ── */
+    .fade-up { opacity:0; transform:translateY(28px); transition:opacity .6s ease, transform .6s ease; }
+    .fade-up.d1{transition-delay:.1s} .fade-up.d2{transition-delay:.2s}
+    .fade-up.d3{transition-delay:.3s} .fade-up.d4{transition-delay:.4s}
+    .fade-up.visible { opacity:1; transform:translateY(0); }
+
+    /* ── Layout ── */
+    .wrap { max-width:540px; margin:0 auto; padding:0 20px; }
+    section { position:relative; overflow:hidden; }
+
+    /* ── Section Header ── */
+    .sh { text-align:center; margin-bottom:28px; }
+    .sh-label {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:11.5px; letter-spacing:.14em; color:var(--pink);
+      font-family:var(--sans); font-weight:600; margin-bottom:8px;
+    }
+    .sh-label::before,.sh-label::after { content:'✦'; font-size:8px; }
+    .sh-title {
+      font-family:var(--jf-half);
+      font-size:clamp(21px,6vw,28px);
+      font-weight:normal; line-height:1.5; color:var(--text);
+    }
+    .sh-sub { font-size:13.5px; line-height:1.9; color:var(--text-mid); margin-top:7px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      border:none; border-radius:50px; cursor:pointer;
+      font-family:var(--jf-half); font-size:15px; padding:14px 28px;
+      text-decoration:none; letter-spacing:.05em;
+      transition:transform .18s, box-shadow .18s;
+    }
+    .btn:active { transform:scale(0.97); }
+    .btn-pink {
+      background:linear-gradient(135deg,#C7607A,#D4879A);
+      color:white; box-shadow:0 6px 20px rgba(199,96,122,.32);
+    }
+    .btn-pink:hover { box-shadow:0 8px 26px rgba(199,96,122,.44); transform:translateY(-1px); }
+    .btn-outline {
+      background:rgba(255,255,255,.75); color:var(--pink);
+      border:1.5px solid var(--pink-mid); backdrop-filter:blur(6px);
+    }
+    .btn-block { display:flex; width:100%; }
+
+    /* ── NAV ── */
+    nav {
+      position:fixed; top:0; left:0; right:0; z-index:200;
+      padding:11px 18px;
+      display:flex; align-items:center; justify-content:space-between;
+      background:rgba(250,240,242,.92); backdrop-filter:blur(14px);
+      border-bottom:1px solid var(--border);
+    }
+    .nav-logo {
+      font-family:var(--jf-half); font-size:13.5px;
+      color:var(--pink); text-decoration:none; line-height:1.3;
+    }
+    .nav-btn { font-size:12px; padding:9px 15px; white-space:nowrap; }
+
+    /* ── BOTTOM TAB BAR ── */
+    #tab-bar {
+      position:fixed; bottom:0; left:0; right:0; z-index:200;
+      background:rgba(250,240,242,.97); backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+      border-top:1px solid var(--border);
+      display:flex; height:58px;
+      padding-bottom:env(safe-area-inset-bottom);
+    }
+    .tab-item {
+      flex:1; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:2px;
+      text-decoration:none; color:var(--text-light);
+      font-family:var(--jf-quarter); font-size:9px; letter-spacing:.02em;
+      cursor:pointer; transition:color .2s;
+      -webkit-tap-highlight-color:transparent;
+      border:none; background:none; padding:0;
+    }
+    .tab-item.active { color:var(--pink); }
+    .tab-icon { width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+
+    /* ── HERO ── */
+    #hero {
+      min-height:100svh;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:110px 20px 80px;
+      background:linear-gradient(160deg,#faf0f2 0%,#f5e8ec 40%,#fdeef1 70%,#faf6f0 100%);
+      text-align:center;
+    }
+    #hero::before {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background:
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(199,96,122,.08), transparent 60%),
+        radial-gradient(ellipse 50% 35% at 20% 80%, rgba(212,135,154,.07), transparent 55%);
+    }
+
+    .hero-avatar-wrap {
+      position:relative; width:100px; height:100px; margin:0 auto 24px;
+    }
+    .hero-avatar-ring {
+      position:absolute; inset:-3px; border-radius:50%;
+      background:linear-gradient(135deg,var(--pink-light),var(--pink),var(--pink-mid));
+      opacity:.5; animation:spin 8s linear infinite;
+    }
+    @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+    .hero-avatar-inner {
+      position:relative; z-index:1;
+      width:100%; height:100%; border-radius:50%;
+      background:linear-gradient(135deg,rgba(199,96,122,.12),rgba(199,96,122,.22));
+      border:3px solid rgba(255,255,255,.9);
+      box-shadow:0 4px 20px rgba(199,96,122,.18);
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden;
+    }
+    .hero-avatar-inner img { width:100%; height:100%; object-fit:cover; object-position:center top; }
+    .hero-avatar-placeholder {
+      font-family:var(--jf-half); font-size:36px;
+      background:linear-gradient(135deg,var(--pink),var(--rose));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+
+    .hero-eyebrow {
+      font-family:var(--jf-quarter); font-size:12.5px;
+      letter-spacing:.18em; color:rgba(199,96,122,.8); margin-bottom:14px;
+    }
+    .hero-big {
+      font-family:var(--jf-half);
+      font-size:clamp(38px,12vw,60px); line-height:1.1; margin-bottom:6px;
+    }
+    .hero-big em {
+      font-style:normal;
+      background:linear-gradient(135deg,#C7607A,#D4879A);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .hero-sub {
+      font-family:var(--jf-half); font-size:clamp(16px,5vw,21px);
+      color:var(--text-mid); margin-bottom:16px;
+    }
+    .hero-tagline {
+      font-family:var(--jf-quarter); font-size:14px; line-height:1.9;
+      color:var(--text-mid); margin-bottom:32px; max-width:300px;
+    }
+    .hero-tagline strong { color:var(--text); }
+    .hero-btns { display:flex; flex-direction:column; gap:11px; width:100%; max-width:300px; }
+    .hero-proof {
+      margin-top:40px; display:flex; align-items:center; gap:10px;
+      font-family:var(--jf-quarter); font-size:12px; color:var(--text-light);
+    }
+    .proof-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,var(--pink-mid),transparent); }
+
+    /* ── HOW-TO STEPS ── */
+    #steps { padding:68px 0; background:var(--bg); }
+    .step-cards { display:flex; flex-direction:column; gap:13px; }
+    .step-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:18px; padding:19px 17px;
+      display:flex; gap:15px; align-items:flex-start;
+    }
+    .step-num {
+      width:34px; height:34px; flex-shrink:0;
+      background:linear-gradient(135deg,#C7607A,#D4879A);
+      color:white; border-radius:50%;
+      font-family:var(--jf-half); font-size:15px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 3px 10px rgba(199,96,122,.28);
+    }
+    .step-title { font-family:var(--jf-half); font-size:15.5px; color:var(--text); margin-bottom:5px; }
+    .step-desc { font-family:var(--jf-quarter); font-size:13px; line-height:1.8; color:var(--text-mid); }
+    code {
+      background:rgba(199,96,122,.1); padding:2px 6px;
+      border-radius:5px; font-size:12px; font-family:monospace; color:var(--rose);
+    }
+
+    /* ── PROMPT ── */
+    #prompt { padding:68px 0; background:var(--bg2); }
+    .prompt-box {
+      background:var(--card); border:1px solid var(--border-mid);
+      border-radius:20px; overflow:hidden;
+      box-shadow:0 6px 28px rgba(199,96,122,.10);
+    }
+    .prompt-head {
+      background:linear-gradient(135deg,rgba(199,96,122,.07),rgba(199,96,122,.13));
+      padding:14px 18px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .prompt-dots { display:flex; gap:6px; }
+    .prompt-dots span { width:10px; height:10px; border-radius:50%; }
+    .prompt-dots span:nth-child(1){background:#ff6b6b;}
+    .prompt-dots span:nth-child(2){background:#ffd93d;}
+    .prompt-dots span:nth-child(3){background:#6bcb77;}
+    .copy-btn {
+      font-family:var(--jf-quarter); font-size:12px; font-weight:600;
+      color:var(--pink); background:rgba(199,96,122,.08);
+      border:1px solid var(--border-mid); border-radius:20px;
+      padding:6px 16px; cursor:pointer; letter-spacing:.04em;
+      transition:all .2s;
+    }
+    .copy-btn:hover { background:var(--pink); color:white; border-color:var(--pink); }
+    .prompt-text {
+      padding:20px 18px; font-size:12.5px; line-height:2;
+      color:var(--text-mid); white-space:pre-wrap; word-break:break-word;
+      max-height:480px; overflow-y:auto;
+      scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+    }
+    .prompt-text::-webkit-scrollbar { width:3px; }
+    .prompt-text::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    /* ── SYNTAX ── */
+    #syntax { padding:68px 0; background:var(--bg); }
+    .syntax-cards { display:flex; flex-direction:column; gap:11px; }
+    .syn-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:16px; overflow:hidden;
+    }
+    .syn-head {
+      background:linear-gradient(135deg,rgba(199,96,122,.07),rgba(199,96,122,.13));
+      padding:11px 16px; border-bottom:1px solid var(--border);
+    }
+    .syn-code {
+      font-family:monospace; font-size:13px;
+      color:var(--rose); letter-spacing:.03em;
+    }
+    .syn-body {
+      padding:12px 16px;
+      font-family:var(--jf-quarter); font-size:13px;
+      line-height:1.8; color:var(--text-mid);
+    }
+    .syn-body strong { color:var(--text); }
+
+    /* example box */
+    .example-box {
+      background:linear-gradient(135deg,rgba(199,96,122,.05),rgba(212,135,154,.10));
+      border-radius:16px; padding:18px 16px;
+      border:1px solid var(--border-mid); margin-top:16px;
+    }
+    .example-title {
+      font-family:var(--jf-half); font-size:14px;
+      color:var(--pink); margin-bottom:12px;
+    }
+    .example-body {
+      font-family:var(--jf-quarter); font-size:13px;
+      line-height:1.9; color:var(--text-mid);
+    }
+
+    /* ── TIPS ── */
+    #tips { padding:68px 0; background:var(--bg2); }
+    .tip-cards { display:flex; flex-direction:column; gap:11px; }
+    .tip-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:15px; padding:16px 17px;
+      display:flex; gap:13px; align-items:flex-start;
+    }
+    .tip-badge {
+      flex-shrink:0; font-family:var(--jf-quarter); font-size:11.5px;
+      font-weight:700; color:var(--pink);
+      background:rgba(199,96,122,.1); padding:3px 10px;
+      border-radius:20px; white-space:nowrap; margin-top:2px;
+    }
+    .tip-body {
+      font-family:var(--jf-quarter); font-size:13px;
+      line-height:1.8; color:var(--text-mid);
+    }
+
+    /* ── FAQ ── */
+    #faq { padding:68px 0; background:var(--bg); }
+    .faq-list { display:flex; flex-direction:column; gap:11px; }
+    .faq-item {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:16px; overflow:hidden;
+    }
+    .faq-q {
+      padding:18px 17px; font-family:var(--jf-half); font-size:14.5px;
+      color:var(--text); cursor:pointer;
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      transition:color .2s; user-select:none;
+    }
+    .faq-q:hover { color:var(--pink); }
+    .faq-icon {
+      color:var(--pink-mid); font-size:20px; flex-shrink:0;
+      transition:transform .3s; line-height:1;
+    }
+    .faq-a {
+      display:none; padding:0 17px 18px;
+      font-family:var(--jf-quarter); font-size:13px;
+      line-height:1.9; color:var(--text-mid);
+      border-top:1px solid var(--border); padding-top:14px;
+    }
+    .faq-item.open .faq-a { display:block; }
+    .faq-item.open .faq-icon { transform:rotate(45deg); color:var(--pink); }
+
+    /* ── FOOTER CTA ── */
+    #cta { padding:68px 0; background:var(--bg2); }
+    .luna-says {
+      background:var(--pink); border-radius:20px;
+      padding:26px 20px; text-align:center; margin-bottom:20px;
+    }
+    .luna-says-label {
+      font-family:var(--jf-quarter); font-size:11px;
+      letter-spacing:.12em; color:rgba(255,255,255,.7); margin-bottom:10px;
+    }
+    .luna-says-text {
+      font-family:var(--jf-half); font-size:16px;
+      line-height:1.8; color:white;
+    }
+    .skool-card {
+      background:var(--card); border:2px solid var(--pink-mid);
+      border-radius:22px; overflow:hidden;
+      box-shadow:0 6px 28px rgba(199,96,122,.13);
+    }
+    .skool-top {
+      background:linear-gradient(135deg,rgba(199,96,122,.08),rgba(212,135,154,.17));
+      padding:24px 20px; text-align:center;
+      border-bottom:1px solid var(--border);
+    }
+    .skool-tag {
+      font-family:var(--sans); font-size:11px; font-weight:700;
+      letter-spacing:.14em; color:var(--pink); margin-bottom:8px;
+    }
+    .skool-title {
+      font-family:var(--jf-half);
+      font-size:clamp(18px,5.5vw,23px);
+      color:var(--text); line-height:1.5; margin-bottom:7px;
+    }
+    .skool-sub {
+      font-family:var(--jf-quarter); font-size:13px;
+      color:var(--text-mid); line-height:1.8;
+    }
+    .skool-body { padding:20px 18px; }
+    .skool-benefit {
+      display:flex; gap:11px; align-items:flex-start;
+      margin-bottom:11px;
+    }
+    .skool-benefit:last-of-type { margin-bottom:0; }
+    .skool-dot {
+      width:7px; height:7px; border-radius:50%;
+      background:var(--pink-mid); flex-shrink:0; margin-top:7px;
+    }
+    .skool-text {
+      font-family:var(--jf-quarter); font-size:13.5px;
+      line-height:1.7; color:var(--text-mid);
+    }
+    .skool-text strong { color:var(--text); }
+    .skool-cta {
+      padding:18px 18px 22px; text-align:center;
+      border-top:1px solid var(--border);
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .skool-note {
+      font-family:var(--jf-quarter); font-size:12px;
+      color:var(--text-light); line-height:1.6;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:80px; left:50%;
+      transform:translateX(-50%) translateY(16px);
+      background:var(--rose); color:white;
+      padding:11px 22px; border-radius:50px;
+      font-family:var(--jf-quarter); font-size:13px;
+      opacity:0; transition:all .3s; z-index:9999;
+      pointer-events:none; white-space:nowrap;
+      box-shadow:0 4px 16px rgba(199,96,122,.3);
+    }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<div class="toast" id="toast">✦ 已複製到剪貼簿</div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">Luna 寵物溝通創業</a>
+  <a href="https://www.instagram.com/luna.love520/" target="_blank"
+     style="display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--pink);font-family:var(--jf-quarter);font-size:12px;font-weight:600;border:1px solid var(--border-mid);border-radius:50px;padding:6px 12px;background:rgba(199,96,122,.05);">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+    @luna.love520
+  </a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="wrap" style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;">
+
+    <div class="hero-avatar-wrap fade-up">
+      <div class="hero-avatar-ring"></div>
+      <div class="hero-avatar-inner">
+        <!--
+          【換頭像】把你的圖存成 luna-avatar.jpg 放在同一個資料夾，
+          取消下面這行的注解：
+          <img src="luna-avatar.jpg" alt="Luna">
+        -->
+        <div class="hero-avatar-placeholder">L</div>
+      </div>
+    </div>
+
+    <div class="hero-eyebrow fade-up d1">LUNA × AI 工具教學</div>
+    <h1 class="hero-big fade-up d2">打造<br><em>專屬編輯器</em></h1>
+    <p class="hero-sub fade-up d3">輪播貼文製作神器</p>
+    <p class="hero-tagline fade-up d3">
+      不需要懂技術，不需要買軟體。<br>
+      跟著 Claude，<strong>做出完全符合你品牌風格的輪播工具。</strong>
+    </p>
+
+    <div class="hero-btns fade-up d4">
+      <a href="#prompt" class="btn btn-pink btn-block" style="justify-content:center;">馬上開始製作 →</a>
+      <a href="#steps" class="btn btn-outline btn-block" style="justify-content:center;">先看教學步驟</a>
+    </div>
+
+    <div class="hero-proof fade-up d4">
+      <div class="proof-line"></div>
+      <span>全程中文對話 × 無需技術背景 × 5 分鐘上手</span>
+      <div class="proof-line"></div>
+    </div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section id="steps">
+  <div class="wrap">
+    <div class="sh fade-up">
+      <div class="sh-label">HOW IT WORKS</div>
+      <h2 class="sh-title">五個步驟，做出你的編輯器</h2>
+      <p class="sh-sub">全程不需要懂技術。你只需要一個 Claude 帳號和幾分鐘時間。</p>
+    </div>
+
+    <div class="step-cards">
+      <div class="step-card fade-up d1">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">複製下方的啟動提示詞</div>
+          <div class="step-desc">頁面下方有一段完整的提示詞，點「複製全部」即可。</div>
+        </div>
+      </div>
+      <div class="step-card fade-up d2">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">打開 Claude Chat，貼上去</div>
+          <div class="step-desc">前往 <strong>chat.claude.ai</strong>，開新對話，貼進去送出。</div>
+        </div>
+      </div>
+      <div class="step-card fade-up d3">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">上傳參考圖（可選）</div>
+          <div class="step-desc">Claude 會先問你有沒有參考風格的圖片。有的話直接上傳截圖，它會先分析風格再問細節。沒有也沒關係，用文字描述就好。</div>
+        </div>
+      </div>
+      <div class="step-card fade-up d4">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title">回答 Claude 的問題</div>
+          <div class="step-desc">Claude 會一次問你一個問題——帳號名稱、品牌風格、輪播結構、要不要放照片…約 7 個問題，用中文回答就好。</div>
+        </div>
+      </div>
+      <div class="step-card fade-up">
+        <div class="step-num">5</div>
+        <div>
+          <div class="step-title">存成 HTML，用 Chrome 打開</div>
+          <div class="step-desc">把 Claude 輸出的程式碼全部複製，貼到記事本，另存成 <code>.html</code> 檔，用 Chrome 或 Safari 打開就是你的專屬編輯器。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROMPT -->
+<section id="prompt">
+  <div class="wrap">
+    <div class="sh fade-up">
+      <div class="sh-label">STARTER PROMPT</div>
+      <h2 class="sh-title">啟動提示詞</h2>
+      <p class="sh-sub">把以下內容全部複製，貼進 Claude Chat 對話框送出即可啟動。<br>Claude 會主動引導你完成所有設定。</p>
+    </div>
+
+    <div class="prompt-box fade-up">
+      <div class="prompt-head">
+        <div class="prompt-dots"><span></span><span></span><span></span></div>
+        <button class="copy-btn" onclick="copyPrompt()">複製全部</button>
+      </div>
+      <div class="prompt-text" id="promptContent">你現在是一個專業的【輪播貼文編輯器製作助手】。
+
+你的任務是：先收集我的需求，再幫我生成一個完整的、可以在瀏覽器直接使用的 HTML 輪播貼文編輯器。
+
+請用友善的繁體中文跟我對話，一次只問一個問題。
+
+---
+
+【第一步：先問我有沒有參考圖】
+
+請先問我：「你有沒有想參考的風格圖片？可以是你喜歡的帳號截圖、你常看到的版型、或任何你覺得『我想要類似這種感覺』的圖。有的話先上傳，沒有也沒關係，我們直接用文字描述。」
+
+如果我上傳了圖片，請先仔細分析圖片的配色、版型結構、整體風格感受，告訴我你觀察到什麼，再根據觀察繼續問細節。
+
+如果我沒有上傳圖片，直接進入第二步。
+
+---
+
+【第二步：依序問以下問題，一次一個】
+
+問題 1：你的帳號名稱或品牌名稱叫什麼？（會自動加在每張圖的浮水印上）
+
+問題 2：你的品牌給人什麼感覺？用幾個詞形容。（例如：高級冷靜、溫暖療癒、活潑可愛、神秘靈性、簡約知性）
+
+問題 3：你偏好深色背景還是淺色背景？有沒有喜歡的顏色或色碼？
+
+問題 4：你希望重點文字（強調字）是什麼顏色？如果有第二個常用強調色也一起說。
+
+問題 5：你的輪播通常做幾張？每一張大概放什麼內容？（例如：5 張，第 1 張封面、第 2-4 張正文、第 5 張 CTA）
+
+問題 6：你會在圖片上放背景照片嗎？（需要的話，我會幫你加入照片上傳、位置調整、明暗控制的功能）
+
+問題 7：你想要以下哪些選填欄位？（可以多選，不要也沒關係）
+- 品牌介紹文字欄（放一段固定的品牌說明）
+- Hashtag 欄（固定 hashtag 存在這裡）
+
+---
+
+【問完之後，直接根據我的答案生成 HTML，不需要再確認，直接輸出完整程式碼】
+
+這個 HTML 編輯器必須包含以下所有功能：
+
+整體架構：三欄版面（左側縮略圖導航、中間編輯區、右側即時預覽），左側縮略圖可點擊切換頁面並顯示頁碼。
+
+文字欄位（每頁都有）：標籤欄（Badge）、標題欄（支援多行 textarea，預覽時完整保留換行）、副標題欄、內文欄（多行）。最後一頁額外有 CTA 欄。
+
+選填欄位：依問題 7 決定是否加入品牌介紹文字欄和 Hashtag 欄。
+
+內嵌排版語法（在任何文字欄都可以使用）：
+1. **文字** → 主強調色文字
+2. ##文字## → 第二強調色文字
+3. --- → 橫向分隔線
+4. [[ 和 ]] 包住的文字區塊 → 半透明底色攻略卡片，裡面每行以「- 」開頭自動變條列項目
+
+照片功能：依問題 6 決定是否加入（上傳照片、水平/垂直位置滑桿、縮放、模糊、暗化）。
+
+儲存：換頁時自動儲存（localStorage），頁面上方有「載入已儲存」和「重置」按鈕。
+
+浮水印：每張圖右下角自動顯示帳號名稱 + 頁碼（例如 1/5）。
+
+匯出：下載單張 PNG（2x 解析度）、一鍵下載全部 PNG 打包成 ZIP（JSZip + html2canvas，ZIP 以帳號名稱命名）。
+
+設計：顏色、字體、風格完全根據我的品牌答案或參考圖設計，攻略卡片的半透明底色要跟整體配色協調，不要用通用模板。
+
+輸出格式：完整可用的單一 HTML 檔案，所有功能內嵌，無需後端。</div>
+    </div>
+  </div>
+</section>
+
+<!-- SYNTAX -->
+<section id="syntax">
+  <div class="wrap">
+    <div class="sh fade-up">
+      <div class="sh-label">SYNTAX GUIDE</div>
+      <h2 class="sh-title">內嵌排版語法</h2>
+      <p class="sh-sub">做好編輯器後，在任何文字欄裡輸入這些符號，預覽自動轉換樣式——每一頁都能用，不需要進任何設定。</p>
+    </div>
+
+    <div class="syntax-cards">
+      <div class="syn-card fade-up d1">
+        <div class="syn-head"><div class="syn-code">**重要文字**</div></div>
+        <div class="syn-body">→ 顯示為<strong>品牌主強調色</strong>文字，用來突出最重要的訊息</div>
+      </div>
+      <div class="syn-card fade-up d2">
+        <div class="syn-head"><div class="syn-code">##另一種重點##</div></div>
+        <div class="syn-body">→ 顯示為<strong>第二強調色</strong>文字，區分不同層次的重點</div>
+      </div>
+      <div class="syn-card fade-up d3">
+        <div class="syn-head"><div class="syn-code">---</div></div>
+        <div class="syn-body">→ 橫向分隔線，把段落切開，增加視覺層次</div>
+      </div>
+      <div class="syn-card fade-up d4">
+        <div class="syn-head"><div class="syn-code">[[ 內容 ]]</div></div>
+        <div class="syn-body">→ 半透明底色攻略卡片。裡面每行以 <code>- </code> 開頭自動變條列。想用就包，不影響其他頁面。</div>
+      </div>
+    </div>
+
+    <div class="example-box fade-up">
+      <div class="example-title">✦ 攻略卡片完整寫法</div>
+      <div class="example-body">
+        <code>[[</code><br>
+        <code>- 第一個要點</code><br>
+        <code>- 第二個要點</code><br>
+        <code>- 第三個要點</code><br>
+        <code>]]</code><br><br>
+        這整塊在預覽裡會變成一個有半透明背景的卡片，自動條列顯示。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TIPS -->
+<section id="tips">
+  <div class="wrap">
+    <div class="sh fade-up">
+      <div class="sh-label">ITERATE</div>
+      <h2 class="sh-title">做出來之後想調整怎麼辦</h2>
+      <p class="sh-sub">第一版不完美很正常。在同一個 Claude 對話繼續說就好。</p>
+    </div>
+
+    <div class="tip-cards">
+      <div class="tip-card fade-up d1">
+        <div class="tip-badge">顏色</div>
+        <div class="tip-body">「背景色太亮，改成更深的 <code>#1a1a2e</code>」</div>
+      </div>
+      <div class="tip-card fade-up d2">
+        <div class="tip-badge">字體</div>
+        <div class="tip-body">「標題字體改大一點，大約 <code>24px</code>」</div>
+      </div>
+      <div class="tip-card fade-up d3">
+        <div class="tip-badge">版面</div>
+        <div class="tip-body">「三欄版面跑掉了，幫我修好」</div>
+      </div>
+      <div class="tip-card fade-up d4">
+        <div class="tip-badge">卡片</div>
+        <div class="tip-body">「<code>[[ ]]</code> 攻略卡片的底色太深，調淡一點，邊框加一條細線」</div>
+      </div>
+      <div class="tip-card fade-up">
+        <div class="tip-badge">解析度</div>
+        <div class="tip-body">「下載的圖片太模糊，把匯出解析度改成 <code>3x</code>」</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sh fade-up">
+      <div class="sh-label">FAQ</div>
+      <h2 class="sh-title">常見問題</h2>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-item fade-up d1">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          存成 HTML 之後打開是空白的？
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">確認副檔名是 <code>.html</code>（不是 <code>.html.txt</code>）。Windows 可能需要先開「顯示副檔名」才看得到。改好後用 Chrome 或 Edge 打開。</div>
+      </div>
+      <div class="faq-item fade-up d2">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          [[ ]] 語法打了但預覽沒有變化？
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">確認 <code>[[</code> 和 <code>]]</code> 各自獨立在一行，中間每個條目以 <code>- </code>（減號加空格）開頭。</div>
+      </div>
+      <div class="faq-item fade-up d3">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          可以用中文字體嗎？
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">可以。跟 Claude 說你想要的字體風格，或直接給字體名稱（例如：思源黑體、Noto Sans TC、金萱），它會從 Google Fonts 自動引入。</div>
+      </div>
+      <div class="faq-item fade-up d4">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          做好之後還可以繼續修改嗎？
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">可以。把 HTML 檔案的程式碼貼給 Claude，說「我想調整這裡」，它就能繼續修改。建議每次修改後都存一個新版本備份。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER CTA -->
+<section id="cta">
+  <div class="wrap">
+    <div class="luna-says fade-up">
+      <div class="luna-says-label">✦ LUNA SAYS ✦</div>
+      <div class="luna-says-text">
+        工具是用來服務你的品牌的。<br>
+        先搞清楚你是誰，工具才會真的好用。
+      </div>
+    </div>
+
+    <div class="skool-card fade-up">
+      <div class="skool-top">
+        <div class="skool-tag">✦ 免費加入 ✦</div>
+        <h2 class="skool-title">麻瓜研究所<br>免費寵物溝通先修班</h2>
+        <p class="skool-sub">想讓寵物溝通變成你的副業收入？<br>從這裡開始。</p>
+      </div>
+      <div class="skool-body">
+        <div class="skool-benefit">
+          <div class="skool-dot"></div>
+          <div class="skool-text">全台唯一使用<strong>他心通教學系統</strong>的寵物溝通創業導師</div>
+        </div>
+        <div class="skool-benefit">
+          <div class="skool-dot"></div>
+          <div class="skool-text">從零開始學，到建立<strong>穩定月入六位數的副業系統</strong></div>
+        </div>
+        <div class="skool-benefit">
+          <div class="skool-dot"></div>
+          <div class="skool-text">普通人也能學會，不需要天賦，<strong>只需要正確的方法</strong></div>
+        </div>
+      </div>
+      <div class="skool-cta">
+        <a href="https://www.skool.com/lunapet" target="_blank" class="btn btn-pink btn-block" style="justify-content:center;">免費加入先修班 →</a>
+        <a href="https://lunalove520.github.io/learning/" target="_blank" class="btn btn-outline btn-block" style="justify-content:center;">查看完整課程介紹</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT LUNA + IG -->
+<section id="about" style="padding:68px 0;background:var(--bg);">
+  <div class="wrap">
+
+    <!-- About Card -->
+    <div class="fade-up" style="background:var(--card);border:1px solid var(--border);border-radius:22px;overflow:hidden;margin-bottom:20px;box-shadow:0 4px 18px rgba(199,96,122,.08);">
+      <div style="background:linear-gradient(135deg,rgba(199,96,122,.08),rgba(212,135,154,.17));padding:24px 20px;border-bottom:1px solid var(--border);text-align:center;">
+        <div style="width:72px;height:72px;border-radius:50%;margin:0 auto 14px;overflow:hidden;border:3px solid rgba(255,255,255,.9);box-shadow:0 3px 12px rgba(199,96,122,.2);background:linear-gradient(135deg,rgba(199,96,122,.15),rgba(199,96,122,.28));display:flex;align-items:center;justify-content:center;">
+          <!--
+            【換頭像】把你的圖存成 luna-avatar.jpg 放在同一個資料夾：
+            <img src="luna-avatar.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center top;">
+          -->
+          <span style="font-family:var(--jf-half);font-size:26px;background:linear-gradient(135deg,var(--pink),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">L</span>
+        </div>
+        <div style="font-family:var(--jf-quarter);font-size:11px;letter-spacing:.14em;color:var(--pink);font-weight:600;margin-bottom:6px;">✦ 關於 LUNA ✦</div>
+        <div style="font-family:var(--jf-half);font-size:20px;color:var(--text);margin-bottom:4px;">寵物溝通師 · Luna</div>
+        <a href="https://www.instagram.com/luna.love520/" target="_blank" style="font-family:var(--jf-quarter);font-size:13px;color:var(--pink);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          @luna.love520
+        </a>
+      </div>
+      <div style="padding:20px 18px;">
+        <p style="font-family:var(--jf-quarter);font-size:13.5px;line-height:1.9;color:var(--text-mid);margin-bottom:14px;">
+          全台唯一使用<strong style="color:var(--text);">他心通教學系統</strong>的寵物溝通創業導師。<br>
+          曾負債千萬，透過寵物溝通三個月變現 150 萬，<br>
+          現在專門幫<strong style="color:var(--text);">普通人（麻瓜）</strong>學會寵物溝通，<br>
+          並建立屬於自己的<strong style="color:var(--text);">穩定月入六位數副業系統</strong>。
+        </p>
+        <div style="font-family:var(--jf-quarter);font-size:12px;color:var(--text-light);line-height:1.8;background:rgba(199,96,122,.05);border-radius:12px;padding:12px 14px;border:1px solid var(--border);">
+          寵物溝通不是天賦，是可以被學習的技能。<br>
+          穩定 × 準確 × 解決問題——這才是真正的溝通。
+        </div>
+      </div>
+    </div>
+
+    <!-- IG Card -->
+    <div class="fade-up" style="background:var(--card);border:1.5px solid var(--border-mid);border-radius:22px;overflow:hidden;box-shadow:0 6px 24px rgba(199,96,122,.12);">
+      <!-- IG Header -->
+      <div style="padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);padding:2px;flex-shrink:0;">
+          <div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <span style="font-family:var(--jf-half);font-size:14px;background:linear-gradient(135deg,var(--pink),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">L</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--jf-half);font-size:14px;color:var(--text);">luna.love520</div>
+          <div style="font-family:var(--jf-quarter);font-size:11.5px;color:var(--text-light);">寵物溝通師 · 創業導師</div>
+        </div>
+        <a href="https://www.instagram.com/luna.love520/" target="_blank"
+           style="margin-left:auto;font-family:var(--jf-quarter);font-size:12px;font-weight:700;color:white;background:linear-gradient(135deg,#C7607A,#D4879A);border-radius:20px;padding:6px 16px;text-decoration:none;white-space:nowrap;box-shadow:0 3px 10px rgba(199,96,122,.28);">
+          追蹤
+        </a>
+      </div>
+
+      <!-- IG CTA -->
+      <div style="padding:16px 18px;text-align:center;">
+        <a href="https://www.instagram.com/luna.love520/" target="_blank"
+           style="display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--jf-quarter);font-size:13px;font-weight:600;color:var(--pink);text-decoration:none;padding:11px 20px;border:1.5px solid var(--pink-mid);border-radius:50px;transition:all .2s;background:rgba(199,96,122,.04);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+          在 Instagram 上追蹤 Luna
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BOTTOM TAB BAR -->
+<div id="tab-bar">
+  <a href="#steps" class="tab-item" onclick="setTab(this)">
+    <div class="tab-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <span>教學</span>
+  </a>
+  <a href="#prompt" class="tab-item" onclick="setTab(this)">
+    <div class="tab-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="16" x2="12" y2="16"/>
+      </svg>
+    </div>
+    <span>提示詞</span>
+  </a>
+  <a href="#syntax" class="tab-item" onclick="setTab(this)">
+    <div class="tab-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+      </svg>
+    </div>
+    <span>語法</span>
+  </a>
+  <a href="#cta" class="tab-item" onclick="setTab(this)">
+    <div class="tab-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </div>
+    <span>課程</span>
+  </a>
+</div>
+
+<script>
+  // Fade-up on scroll
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.fade-up').forEach(el => obs.observe(el));
+
+  // Copy prompt
+  function copyPrompt() {
+    const text = document.getElementById('promptContent').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const t = document.getElementById('toast');
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    });
+  }
+
+  // FAQ
+  function toggleFaq(el) {
+    const item = el.parentElement;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+  // Tab bar
+  function setTab(el) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>
